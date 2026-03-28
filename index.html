@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StudyForge — GEHU BCA Academic Archive</title>
+<meta name="description" content="StudyForge: GEHU BCA previous year papers, AI-powered notes, MCQs, study plans and exam prep — all free."/>
+<meta name="keywords" content="GEHU, BCA, previous year papers, PYQ, exam prep, study notes, AI notes, Haldwani"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <div class="sb">
+    <div class="sb-logo" onclick="showPage('home')">SF</div>
+    <button class="sb-btn active" id="nav-home" onclick="showPage('home')">🏠<span class="sb-tip">Home</span></button>
+    <button class="sb-btn" id="nav-browse" onclick="showPage('browse')">📚<span class="sb-tip">Browse</span></button>
+    <button class="sb-btn" id="nav-viewer" onclick="showPage('viewer')">📄<span class="sb-tip">Viewer</span></button>
+    <div class="sb-div"></div>
+    <button class="sb-btn" id="nav-admin" onclick="showPage('admin')">⚙️<span class="sb-tip">Admin</span></button>
+    <button class="sb-btn" onclick="openDrawer()">◈<span class="sb-tip">Collections</span></button>
+    <div class="sb-av">🎓</div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <span class="tb-title" id="tb-title">StudyForge // Archive</span>
+      <div class="search-wrap">
+        <span style="font-size:13px">🔍</span>
+        <input type="text" id="search-input" placeholder="Search subjects…" oninput="handleSearch(this.value)"/>
+        <span id="search-clear" style="cursor:pointer;color:#bbb;font-size:13px;display:none" onclick="clearSearch()">✕</span>
+      </div>
+      <div class="tb-right">
+        <button class="btn btn-out" onclick="openDrawer()">◈ Collections</button>
+        <button class="btn btn-dark" onclick="showPage('admin')">⚙ Admin</button>
+      </div>
+    </div>
+
+    <!-- PAGE: HOME -->
+    <div class="page active" id="page-home">
+      <div class="hero">
+        <div class="hero-l">
+          <div class="hero-eye">GEHU BCA · HALDWANI CAMPUS · PYQ ARCHIVE</div>
+          <div class="hero-h">StudyForge //<br>Academic Archive</div>
+          <div class="hero-sub">Real question papers from GEHU. View PDFs, get AI-powered notes trained on BCA curriculum, track your exam prep — all in one place.</div>
+          <div class="hero-btns">
+            <button class="hbtn hbtn-w" onclick="showPage('browse')">Browse Papers</button>
+            <button class="hbtn hbtn-g" onclick="showPage('viewer')">Open Viewer</button>
+          </div>
+        </div>
+        <div class="hero-stats">
+          <div><div class="hstat-n" id="stat-papers">—</div><div class="hstat-l">Papers</div></div>
+          <div><div class="hstat-n" id="stat-subjects">—</div><div class="hstat-l">Subjects</div></div>
+          <div><div class="hstat-n">6</div><div class="hstat-l">Semesters</div></div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="sc" style="background:#fde8d8"><div class="sc-n">2021–26</div><div class="sc-l">Year Range</div></div>
+        <div class="sc" style="background:#d8f0fd"><div class="sc-n">PDF</div><div class="sc-l">Inline Viewer</div></div>
+        <div class="sc" style="background:#e8d8fd"><div class="sc-n">6</div><div class="sc-l">AI Templates</div></div>
+        <div class="sc" style="background:#d8fde8"><div class="sc-n">Free</div><div class="sc-l">Always</div></div>
+      </div>
+
+      <div id="home-sem-rows"></div>
+    </div>
+
+    <!-- PAGE: BROWSE -->
+    <div class="page" id="page-browse">
+      <div class="sh" style="margin-bottom:18px">
+        <div class="sh-title">Browse Papers</div>
+        <span class="sh-meta" id="browse-count">— subjects</span>
+      </div>
+      <div class="frow" id="sem-filters">
+        <span class="fl">Sem</span>
+        <button class="fpill on" onclick="setSemFilter('all',this)">All</button>
+        <button class="fpill" onclick="setSemFilter('1',this)">Sem 1</button>
+        <button class="fpill" onclick="setSemFilter('2',this)">Sem 2</button>
+        <button class="fpill" onclick="setSemFilter('3',this)">Sem 3</button>
+        <button class="fpill" onclick="setSemFilter('4',this)">Sem 4</button>
+        <button class="fpill" onclick="setSemFilter('5',this)">Sem 5</button>
+        <button class="fpill" onclick="setSemFilter('6',this)">Sem 6</button>
+      </div>
+      <div id="browse-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+    </div>
+
+    <!-- PAGE: VIEWER -->
+    <div class="page" id="page-viewer" style="padding:0;overflow:hidden">
+      <div class="viewer-layout" style="height:calc(100vh - 56px)">
+        <div class="vs">
+          <div class="vs-head">
+            <span class="vs-ht" id="vs-title">Select a paper</span>
+            <button class="vs-back" onclick="showPage('browse')">← Browse</button>
+          </div>
+          <div class="vs-scroll" id="vs-list">
+            <div style="padding:24px;text-align:center;color:var(--muted);font-size:12px">Browse and click a subject to view its papers here</div>
+          </div>
+        </div>
+        <div class="vm">
+          <div class="vm-tabs">
+            <button class="vm-tab on" id="tab-paper" onclick="switchViewTab('paper')">📄 Paper</button>
+            <button class="vm-tab" id="tab-ai" onclick="switchViewTab('ai')">🧠 AI Analysis</button>
+          </div>
+          <div class="vm-info">
+            <div>
+              <div class="vm-info-title" id="vm-subject">No paper open</div>
+              <div class="vm-info-meta" id="vm-meta">Select a subject from the sidebar or browse</div>
+            </div>
+            <div class="vm-acts">
+              <button class="btn btn-out" id="btn-save-paper" onclick="saveCurrent()">◈ Save</button>
+              <a id="raw-pdf-link" href="#" target="_blank" rel="noreferrer"><button class="btn btn-dark">↗ Raw PDF</button></a>
+              <button class="btn btn-green" onclick="switchViewTab('ai');if(!aiGenerated)runAI()">🧠 AI Notes</button>
+            </div>
+          </div>
+          <div class="vm-body" id="paper-tab-body">
+            <div class="pdf-overlay" id="pdf-overlay">
+              <div class="pdf-ov-icon">📄</div>
+              <div class="pdf-ov-title">No paper selected</div>
+              <div class="pdf-ov-sub">Pick a subject from the sidebar, then choose a year to open the paper inline.</div>
+            </div>
+            <div class="pdf-overlay" id="pdf-loading" style="display:none">
+              <div class="spinner"></div>
+              <div style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:1px">Loading PDF…</div>
+            </div>
+            <iframe id="pdf-frame" src="about:blank" style="display:none" title="Paper viewer"></iframe>
+          </div>
+          <div id="ai-tab-body" style="flex:1;display:none;flex-direction:column;overflow:hidden">
+            <div class="ai-cfg">
+              <div>
+                <div class="ai-cfg-label" style="margin-bottom:7px">Template</div>
+                <div class="chip-row" id="tpl-chips">
+                  <button class="chip on" onclick="setTpl('notes',this)">📄 Notes</button>
+                  <button class="chip" onclick="setTpl('mcq',this)">🎯 MCQs</button>
+                  <button class="chip" onclick="setTpl('pyq',this)">📋 PYQs</button>
+                  <button class="chip" onclick="setTpl('cheatsheet',this)">⚡ Cheat Sheet</button>
+                  <button class="chip" onclick="setTpl('studyplan',this)">📅 Study Plan</button>
+                  <button class="chip" onclick="setTpl('flashcards',this)">🃏 Flashcards</button>
+                </div>
+              </div>
+              <div>
+                <div class="ai-cfg-label" style="margin-bottom:7px">Level</div>
+                <div class="chip-row" id="diff-chips">
+                  <button class="chip" onclick="setDiff('MID-SEM',this)">Mid Sem</button>
+                  <button class="chip on" onclick="setDiff('END-SEM',this)">End Sem</button>
+                  <button class="chip" onclick="setDiff('VIVA',this)">Viva</button>
+                </div>
+              </div>
+              <button class="btn btn-dark" id="run-ai-btn" onclick="runAI()" style="margin-left:auto" disabled>🧠 Generate</button>
+              <button class="btn btn-out" id="copy-ai-btn" onclick="copyAI()" style="display:none">⎘ Copy</button>
+            </div>
+            <div id="ai-state-empty" class="ai-empty">
+              <div style="font-size:32px">🧠</div>
+              <div class="ai-empty-txt">StudyForge AI is ready.<br>Select a paper and hit Generate.</div>
+            </div>
+            <div id="ai-state-loading" class="ai-loading" style="display:none">
+              <div class="al-msg" id="al-msg">Analyzing GEHU exam patterns…</div>
+              <div class="al-bar"><div class="al-fill"></div></div>
+              <div style="font-size:11px;color:var(--muted)" id="al-sub"></div>
+            </div>
+            <div id="ai-state-output" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+              <div class="out-bar">
+                <div class="out-status"><span class="out-dot"></span>Analysis complete — your edge is ready.</div>
+                <div style="font-size:9px;letter-spacing:1.8px;text-transform:uppercase;color:var(--muted);font-weight:600" id="ai-label">NOTES · END-SEM</div>
+              </div>
+              <div class="ai-out" id="ai-output-body"></div>
+            </div>
+            <div id="ai-state-error" class="ai-empty" style="display:none">
+              <div style="font-size:32px">⚠️</div>
+              <div class="ai-empty-txt" style="color:#e00" id="ai-err-msg">Generation failed.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: ADMIN -->
+    <div class="page" id="page-admin">
+      <div id="admin-login" class="login-wrap">
+        <div class="login-box">
+          <div style="font-size:44px;margin-bottom:16px">🔐</div>
+          <div style="font-family:var(--fh);font-weight:800;font-size:24px;letter-spacing:-.6px;margin-bottom:10px">Admin Panel</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:28px">Enter password to manage papers and settings</div>
+          <input type="password" id="admin-pass-input" placeholder="••••••••" style="width:100%;padding:13px;border-radius:11px;border:1.5px solid var(--border);font-family:var(--fb);font-size:16px;text-align:center;letter-spacing:4px;outline:none;background:var(--bg)" onkeydown="if(event.key==='Enter')adminLogin()"/>
+          <div id="admin-err" style="font-size:12px;color:#e00;font-weight:600;height:18px;margin-top:10px"></div>
+          <button class="btn btn-dark" style="width:100%;margin-top:16px;padding:15px;font-size:12px" onclick="adminLogin()">Unlock Admin</button>
+          <div style="font-size:11px;color:var(--muted);margin-top:18px">Default: <code style="background:#f5f0eb;padding:2px 7px;border-radius:5px">studyforge2024</code></div>
+        </div>
+      </div>
+      <div id="admin-content" style="display:none;max-width:900px;margin:0 auto;padding-bottom:36px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px">
+          <div>
+            <div style="font-family:var(--fh);font-weight:800;font-size:24px;letter-spacing:-.6px">Admin Panel</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:3px">Manage papers, add entries, control settings</div>
+          </div>
+          <button class="btn btn-out" onclick="adminLogout()">🔒 Lock</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:20px">
+          <button class="btn btn-dark" id="at-papers" onclick="setAdminTab('papers')">📄 Papers</button>
+          <button class="btn btn-out" id="at-settings" onclick="setAdminTab('settings')">⚙️ Settings</button>
+        </div>
+        <div id="admin-tab-papers">
+          <div class="warn">⚠️ All papers listed below are from the GEHU GitHub repo. Use the form below to add papers not yet in the list.</div>
+          <div class="admin-card">
+            <div class="ac-head"><div class="ac-title">+ Add Custom Paper</div><div style="font-size:11px;color:var(--muted)">Add papers not yet in the database</div></div>
+            <div class="ac-body">
+              <div class="grid-2">
+                <div class="field"><label>Semester *</label><select id="np-sem"><option value="1">Sem 1</option><option value="2">Sem 2</option><option value="3">Sem 3</option><option value="4">Sem 4</option><option value="5">Sem 5</option><option value="6">Sem 6</option></select></div>
+                <div class="field"><label>Subject *</label><input id="np-subject" placeholder="e.g. Data Structures"/></div>
+              </div>
+              <div class="grid-2">
+                <div class="field"><label>Exam Type</label><select id="np-type"><option value="end">End Sem</option><option value="mid">Mid Sem</option></select></div>
+                <div class="field"><label>Year *</label><input id="np-year" type="number" placeholder="2025"/></div>
+              </div>
+              <div class="grid-2">
+                <div class="field"><label>Month</label><select id="np-month"><option>JAN</option><option>FEB</option><option>MAR</option><option>APR</option><option>MAY</option><option>JUN</option><option>JUL</option><option>AUG</option><option>SEP</option><option>OCT</option><option>NOV</option><option>DEC</option></select></div>
+                <div class="field"><label>PDF URL *</label><input id="np-url" placeholder="https://raw.githubusercontent.com/…"/></div>
+              </div>
+              <button class="btn btn-green" onclick="addCustomPaper()">+ Add Paper</button>
+            </div>
+          </div>
+          <div class="admin-card">
+            <div class="ac-head"><div class="ac-title" id="papers-table-title">All Papers</div><div style="font-size:11px;color:var(--muted)">From database + custom entries</div></div>
+            <div class="ac-body" style="padding:0"><div class="tbl-wrap"><table id="papers-table"><thead><tr><th>Subject</th><th>Sem</th><th>Type</th><th>Year</th><th>Month</th><th>Action</th></tr></thead><tbody id="papers-tbody"></tbody></table></div></div>
+          </div>
+        </div>
+        <div id="admin-tab-settings" style="display:none">
+          <div class="admin-card">
+            <div class="ac-head"><div class="ac-title">⚙️ Settings</div></div>
+            <div class="ac-body" style="display:flex;flex-direction:column;gap:18px">
+              <div class="field"><label>Raw PDF Base URL</label><input value="https://raw.githubusercontent.com/gehuhaldwani/pyqs/main/" readonly style="opacity:.55;cursor:default"/></div>
+              <div class="field"><label>New Admin Password</label><input type="password" id="new-pass" placeholder="Enter new password"/></div>
+              <div style="display:flex;gap:10px">
+                <button class="btn btn-dark" onclick="saveNewPass()">Save Password</button>
+                <button class="btn btn-out" onclick="clearCustomPapers()">Clear Custom Papers</button>
+              </div>
+              <div style="background:#f9f8f6;border-radius:12px;padding:16px;font-size:12px;color:var(--muted);line-height:1.8">
+                📡 <strong style="color:#111">Source:</strong> Papers are from
+                <a href="https://github.com/gehuhaldwani/pyqs" target="_blank" style="color:#111;font-weight:700">gehuhaldwani/pyqs</a>
+                on GitHub.<br>
+                🧠 <strong style="color:#111">AI Engine:</strong> StudyForge AI is trained on GEHU BCA curriculum data covering 17+ subjects across 6 semesters.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COLLECTIONS DRAWER -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer(event)">
+  <div class="drawer" onclick="event.stopPropagation()">
+    <div class="dh"><div class="dh-title">◈ Collections</div><button class="d-close" onclick="closeDrawer()">✕</button></div>
+    <div class="d-body">
+      <div class="d-new">
+        <input type="text" id="new-col-input" placeholder="New collection name…" onkeydown="if(event.key==='Enter')addCollection()"/>
+        <button class="btn btn-dark" style="padding:8px 14px" onclick="addCollection()">+</button>
+      </div>
+      <div id="collections-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="ai-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
