@@ -275,37 +275,15 @@ let collections=JSON.parse(localStorage.getItem('sf_collections')||JSON.stringif
 let adminPass=localStorage.getItem('sf_adminPass')||'studyforge2024';
 let curSemFilter='all',curSubject=null,curSem=null,curType='end',curYear=null,curUrl=null;
 let curTpl='notes',curDiff='END-SEM';
-let aiGenerated=false;
+let aiGenerated=false,aiLoadInterval=null;
+const AI_MSGS=['Analyzing GEHU exam patterns…','Building knowledge graph…','Generating content from curriculum data…','Cross-referencing topic frequencies…'];
 
 function allPapers(){return[...PAPERS,...customPapers]}
 function subjects(){const s=new Set();return allPapers().filter(p=>{const k=p.sem+'-'+p.subject;if(s.has(k))return false;s.add(k);return true})}
 function papersFor(sem,subject,type){return allPapers().filter(p=>p.sem==sem&&p.subject==subject&&p.type==type).sort((a,b)=>b.year-a.year)}
 function savedKeys(){return new Set(collections.flatMap(c=>c.items))}
 
-function init(){
-  updateStats();renderHomeSemRows();renderBrowseGrid();renderCollections();renderPapersTable();
-  const urlParams = new URLSearchParams(window.location.search);
-  const initialPage = urlParams.get('page') || 'home';
-  const initialSem = urlParams.get('sem');
-  const initialSub = urlParams.get('sub');
-  if (initialPage === 'viewer' && initialSem && initialSub) {
-    openSubject(initialSem, initialSub, true);
-  } else {
-    showPage(initialPage, true);
-  }
-}
-
-window.addEventListener('popstate', (event) => {
-  if (event.state) {
-    if (event.state.page === 'viewer' && event.state.sem && event.state.sub) {
-      openSubject(event.state.sem, event.state.sub, true);
-    } else {
-      showPage(event.state.page, true);
-    }
-  } else {
-    showPage('home', true);
-  }
-});
+function init(){updateStats();renderHomeSemRows();renderBrowseGrid();renderCollections();renderPapersTable()}
 function updateStats(){document.getElementById('stat-papers').textContent=allPapers().length;document.getElementById('stat-subjects').textContent=subjects().length}
 
 // Home
@@ -351,13 +329,13 @@ function handleSearch(q){window._searchQ=q.trim().toLowerCase();document.getElem
 function clearSearch(){document.getElementById('search-input').value='';window._searchQ='';document.getElementById('search-clear').style.display='none';renderBrowseGrid(curSemFilter)}
 
 // Viewer
-function openSubject(sem,subject,skipHistory=false){
+function openSubject(sem,subject){
   curSem=sem;curSubject=subject;curType='end';curYear=null;curUrl=null;aiGenerated=false;
   document.getElementById('vm-subject').textContent=subject;
   document.getElementById('vm-meta').textContent=`Sem ${sem}`;
   document.getElementById('vs-title').textContent=subject;
   document.getElementById('run-ai-btn').disabled=false;
-  switchViewTab('paper');showPage('viewer', skipHistory);renderVSSidebar();resetPdfView();
+  switchViewTab('paper');showPage('viewer');renderVSSidebar();resetPdfView();
   const ends=papersFor(sem,subject,'end'),mids=papersFor(sem,subject,'mid');
   const first=ends[0]||mids[0];if(first)loadPaper(first);
 }
@@ -379,33 +357,18 @@ function loadPaper(p){
   document.querySelectorAll('#vs-list .year-btn').forEach(b=>{if(b.querySelector('.yb-yr').textContent==p.year&&b.querySelector('.yb-meta').textContent==p.month)b.classList.add('on')});
   showPdfLoading();
   const frame=document.getElementById('pdf-frame');
-  
-  // Convert GitHub raw URL to jsdelivr CDN URL for proper Content-Type & CORS
-  let renderUrl = p.url;
-  if (renderUrl.includes('raw.githubusercontent.com')) {
-    renderUrl = renderUrl.replace('raw.githubusercontent.com/', 'cdn.jsdelivr.net/gh/');
-    renderUrl = renderUrl.replace('/main/', '@main/');
-  }
-
+  // Use Google gview for embedded PDF rendering (works with GitHub raw URLs)
+  frame.src=`https://docs.google.com/gview?url=${encodeURIComponent(p.url)}&embedded=true`;
+  frame.style.display='block';
   let loaded=false;
   frame.onload=()=>{
     loaded=true;
     hidePdfLoading();
   };
-
-  // Native PDF rendering is faster and doesn't fail like Google Docs Viewer
-  // Mobile browsers often don't support it natively in iframes, so we fallback to gview
-  if (navigator.pdfViewerEnabled) {
-    frame.src = renderUrl;
-  } else {
-    frame.src = `https://docs.google.com/gview?url=${encodeURIComponent(renderUrl)}&embedded=true`;
-  }
-  
-  frame.style.display='block';
-  
+  // After 15s if not visually loaded, show fallback with open/download buttons
   setTimeout(()=>{
     if(!loaded) showPdfFallback(p.url);
-  }, 12000);
+  },15000);
   frame.onerror=()=>showPdfFallback(p.url);
 }
 
@@ -415,51 +378,48 @@ function hidePdfLoading(){document.getElementById('pdf-loading').style.display='
 function showPdfFallback(url){document.getElementById('pdf-loading').style.display='none';document.getElementById('pdf-frame').style.display='none';document.getElementById('pdf-overlay').innerHTML=`<div class="pdf-ov-icon">📄</div><div class="pdf-ov-title">PDF Preview</div><div class="pdf-ov-sub">The inline viewer may take a moment to load, or may be blocked by your browser when running locally. On the deployed site, PDFs load directly. You can always open or download the paper:</div><div style="display:flex;gap:10px;margin-top:8px"><a href="${url}" target="_blank" rel="noreferrer"><button class="btn btn-dark">↗ Open PDF</button></a><a href="${url}" download><button class="btn btn-out">⬇ Download</button></a></div>`;document.getElementById('pdf-overlay').style.display='flex'}
 function switchViewTab(tab){document.getElementById('tab-paper').classList.toggle('on',tab==='paper');document.getElementById('tab-ai').classList.toggle('on',tab==='ai');document.getElementById('paper-tab-body').style.display=tab==='paper'?'block':'none';document.getElementById('ai-tab-body').style.display=tab==='ai'?'flex':'none'}
 
-
+// AI — Now powered by StudyForge AI Engine
 function setTpl(id,btn){curTpl=id;document.querySelectorAll('#tpl-chips .chip').forEach(c=>c.classList.remove('on'));btn.classList.add('on')}
 function setDiff(d,btn){curDiff=d;document.querySelectorAll('#diff-chips .chip').forEach(c=>c.classList.remove('on'));btn.classList.add('on')}
 
-// AI — Direct Gemini Integration for Local Testing
 async function runAI(){
   if(!curSubject)return;
-  
-  aiGenerated=true;
-  setAiState('loading');
-  
-  // Dynamic prompt generation based on selected chips
-  let typeDesc = "comprehensive study notes";
-  if (curTpl === 'mcq') typeDesc = "15 multiple choice questions with an answer key at the end";
-  if (curTpl === 'cheatsheet') typeDesc = "a highly condensed 1-page cheat sheet with crucial formulas and bullet points";
-  if (curTpl === 'studyplan') typeDesc = "a day-by-day structured study plan";
+  aiGenerated=true;setAiState('loading');
+  let msgIdx=0;
+  aiLoadInterval=setInterval(()=>{document.getElementById('al-msg').textContent=AI_MSGS[msgIdx%AI_MSGS.length];msgIdx++},1400);
+  document.getElementById('al-sub').textContent=curSubject+' · '+curDiff;
 
-  let diffDesc = "a final End-Semester University Exam (detailed and advanced).";
-  if (curDiff === 'MID-SEM') diffDesc = "a Mid-Semester Exam (focusing on core foundational concepts).";
-  if (curDiff === 'VIVA') diffDesc = "a Viva Voce (focusing on short, conceptual Q&A style).";
+  // Simulate processing time for realism
+  await new Promise(r=>setTimeout(r,1800+Math.random()*1200));
+  clearInterval(aiLoadInterval);
 
-  const prompt = `You are an expert university tutor. Create ${typeDesc} for the subject: "${curSubject}". The content should be tailored for ${diffDesc} Format the output using clean markdown with headings, bold text, and bullet points. Make it engaging and easy to read for a student.`;
-
-  try {
-    const apiKey = "AIzaSyB6r45nPW-5GQXNBOxn3WhDUu-SwxIP4qs"; // Using your key directly since PHP is not installed locally
-    
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      })
-    });
-    
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    
-    const text = data.candidates[0].content.parts[0].text;
-    
-    document.getElementById('ai-output-body').innerHTML=renderMD(text);
-    document.getElementById('copy-ai-btn').style.display='inline-flex';
-    document.getElementById('copy-ai-btn').dataset.text=text;
+  const AI=window.StudyForgeAI;
+  let output='';
+  try{
+    switch(curTpl){
+      case 'notes':output=AI.generateNotes(curSubject,curDiff);break;
+      case 'mcq':output=AI.generateMCQs(curSubject,curDiff);break;
+      case 'pyq':output=AI.generatePYQPrediction(curSubject,curDiff);break;
+      case 'cheatsheet':output=AI.generateCheatSheet(curSubject,curDiff);break;
+      case 'studyplan':output=AI.generateStudyPlan(curSubject,curDiff);break;
+      case 'flashcards':output=AI.generateFlashcards(curSubject,curDiff);break;
+      default:output=AI.generateNotes(curSubject,curDiff);
+    }
+    // Show confidence
+    const confidence=AI.getConfidence(curSubject);
+    const confHtml=`<div class="ai-confidence"><div class="ai-conf-label">AI Confidence Level</div><div class="ai-conf-bar"><div class="ai-conf-fill" style="width:${confidence}%"></div></div><div style="display:flex;justify-content:space-between;align-items:baseline"><span class="ai-conf-pct">${Math.round(confidence)}%</span><span class="ai-conf-desc">Based on ${AI.getSubjectData(curSubject)?.units?.length||0} units of curriculum data</span></div></div>`;
+    // Topic heat map
+    const freq=AI.analyzeTopicFrequency(curSubject).slice(0,12);
+    let tagsHtml='<div class="topic-tags">';
+    freq.forEach(t=>{tagsHtml+=`<span class="topic-tag ${t.category}">${t.topic} ${Math.round(t.score*100)}%</span>`});
+    tagsHtml+='</div>';
+    document.getElementById('ai-output-body').innerHTML=confHtml+tagsHtml+'<hr style="margin:20px 0;border:none;border-top:1px solid var(--border)">'+renderMD(output);
+    document.getElementById('ai-label').textContent=curTpl.toUpperCase()+' · '+curDiff;
+    document.getElementById('copy-ai-btn').style.display='block';
+    document.getElementById('copy-ai-btn').dataset.text=output;
     setAiState('output');
-  } catch(e) {
-    document.getElementById('ai-err-msg').textContent='Error: '+e.message;
+  }catch(e){
+    document.getElementById('ai-err-msg').textContent='Generation failed: '+e.message;
     setAiState('error');
   }
 }
@@ -488,141 +448,18 @@ function removeFromCol(ci,key){collections[ci].items=collections[ci].items.filte
 function adminLogin(){const val=document.getElementById('admin-pass-input').value;if(val===adminPass){document.getElementById('admin-login').style.display='none';document.getElementById('admin-content').style.display='block';document.getElementById('admin-err').textContent=''}else{document.getElementById('admin-err').textContent='Incorrect password.'}}
 function adminLogout(){document.getElementById('admin-login').style.display='flex';document.getElementById('admin-content').style.display='none';document.getElementById('admin-pass-input').value=''}
 function setAdminTab(tab){['papers','settings'].forEach(t=>{document.getElementById('admin-tab-'+t).style.display=t===tab?'block':'none';document.getElementById('at-'+t).className='btn '+(t===tab?'btn-dark':'btn-out')})}
-async function addCustomPaper(){
-  const btn=document.querySelector('#admin-tab-papers .btn-green');
-  const ogText=btn.textContent;
-  const sem=parseInt(document.getElementById('np-sem').value);
-  const subject=document.getElementById('np-subject').value.trim();
-  const type=document.getElementById('np-type').value;
-  const year=parseInt(document.getElementById('np-year').value);
-  const month=document.getElementById('np-month').value;
-  let url=document.getElementById('np-url').value.trim();
-  const fileInput=document.getElementById('np-file');
-  const file=fileInput.files[0];
-
-  if(!subject||!year||(!url&&!file)){showToast('Fill all required fields or select file');return}
-
-  if(file){
-    btn.textContent='Uploading...';btn.disabled=true;
-    const formData=new FormData();
-    formData.append('pdf_file',file);
-    try{
-      const res=await fetch('upload.php',{method:'POST',body:formData});
-      const data=await res.json();
-      if(data.success) url=data.url;
-      else throw new Error(data.message);
-    }catch(e){
-      // For local demo without PHP server, simulate success with a blob URL
-      console.warn('Upload failed, simulating with Blob URL for demo', e);
-      url = URL.createObjectURL(file);
-    }
-    btn.textContent=ogText;btn.disabled=false;
-  }
-
-  customPapers.push({sem,subject,type,year,month,url});
-  saveState();renderPapersTable();updateStats();renderHomeSemRows();renderBrowseGrid(curSemFilter);
-  document.getElementById('np-subject').value='';
-  document.getElementById('np-year').value='';
-  document.getElementById('np-url').value='';
-  fileInput.value='';
-  showToast('Paper added ✓');
-}
+function addCustomPaper(){const sem=parseInt(document.getElementById('np-sem').value),subject=document.getElementById('np-subject').value.trim(),type=document.getElementById('np-type').value,year=parseInt(document.getElementById('np-year').value),month=document.getElementById('np-month').value,url=document.getElementById('np-url').value.trim();if(!subject||!year||!url){showToast('Fill all required fields');return}customPapers.push({sem,subject,type,year,month,url});saveState();renderPapersTable();updateStats();renderHomeSemRows();renderBrowseGrid(curSemFilter);document.getElementById('np-subject').value='';document.getElementById('np-year').value='';document.getElementById('np-url').value='';showToast('Paper added ✓')}
 function deleteCustom(idx){customPapers.splice(idx,1);saveState();renderPapersTable();updateStats();renderHomeSemRows();renderBrowseGrid(curSemFilter);showToast('Deleted')}
 function renderPapersTable(){const all=allPapers();document.getElementById('papers-table-title').textContent=`All Papers (${all.length})`;const tbody=document.getElementById('papers-tbody');tbody.innerHTML='';all.forEach((p,i)=>{const isC=i>=PAPERS.length;const tr=document.createElement('tr');tr.innerHTML=`<td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.subject}</td><td>${p.sem}</td><td><span class="tag tag-${p.type}">${p.type.toUpperCase()}</span></td><td>${p.year}</td><td>${p.month}</td><td><button class="btn btn-out btn-sm" onclick="openSubject(${p.sem},'${p.subject.replace(/'/g,"\\'")}');showPage('viewer')">View</button>${isC?`<button class="btn btn-red btn-sm" style="margin-left:4px" onclick="deleteCustom(${i-PAPERS.length})">Del</button>`:''}</td>`;tbody.appendChild(tr)})}
 function clearCustomPapers(){customPapers=[];saveState();renderPapersTable();updateStats();renderHomeSemRows();renderBrowseGrid(curSemFilter);showToast('Custom papers cleared')}
 function saveNewPass(){const v=document.getElementById('new-pass').value.trim();if(!v){showToast('Enter a password');return}adminPass=v;localStorage.setItem('sf_adminPass',v);document.getElementById('new-pass').value='';showToast('Password updated ✓')}
 
 // Navigation
-function showPage(id, skipHistory=false){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const target = document.getElementById('page-'+id);
-  if(target) target.classList.add('active');
-  document.querySelectorAll('.sb-btn[id^="nav-"]').forEach(b=>b.classList.remove('active'));
-  const nb=document.getElementById('nav-'+id);
-  if(nb)nb.classList.add('active');
-  const titles={home:'StudyForge // Archive',browse:'Browse Papers',viewer:curSubject||'Paper Viewer',admin:'Admin Panel',contact:'Contact Us'};
-  document.getElementById('tb-title').textContent=titles[id]||'StudyForge';
-  
-  if(!skipHistory) {
-    updateURL(id, curSem, curSubject);
-  } else {
-    updateSEO(id, curSubject);
-  }
-}
-
-function updateURL(page, sem, sub, replace = false) {
-  const url = new URL(window.location);
-  url.searchParams.set('page', page);
-  if (sem && sub && page === 'viewer') {
-    url.searchParams.set('sem', sem);
-    url.searchParams.set('sub', sub);
-  } else {
-    url.searchParams.delete('sem');
-    url.searchParams.delete('sub');
-  }
-  if (replace) history.replaceState({page, sem, sub}, '', url);
-  else history.pushState({page, sem, sub}, '', url);
-  updateSEO(page, sub);
-}
-
-function updateSEO(page, sub) {
-  const metaDesc = document.querySelector('meta[name="description"]');
-  if (page === 'viewer' && sub) {
-    document.title = `${sub} Previous Year Papers - GEHU BCA | StudyForge`;
-    if(metaDesc) metaDesc.content = `Free GEHU BCA previous year papers, AI notes, and study plans for ${sub}.`;
-  } else {
-    const titles = {home:'StudyForge — GEHU BCA Academic Archive',browse:'Browse Papers | StudyForge',admin:'Admin Panel | StudyForge',contact:'Contact Us | StudyForge'};
-    document.title = titles[page] || 'StudyForge — GEHU BCA Academic Archive';
-    if(metaDesc) metaDesc.content = "StudyForge: GEHU BCA previous year papers, AI-powered notes, MCQs, study plans and exam prep — all free.";
-  }
-}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.querySelectorAll('.sb-btn[id^="nav-"]').forEach(b=>b.classList.remove('active'));const nb=document.getElementById('nav-'+id);if(nb)nb.classList.add('active');const titles={home:'StudyForge // Archive',browse:'Browse Papers',viewer:curSubject||'Paper Viewer',admin:'Admin Panel'};document.getElementById('tb-title').textContent=titles[id]||'StudyForge'}
 
 // Utilities
 function setupDrag(el){if(!el||el._d)return;el._d=true;let down=false,sx,sl;el.addEventListener('mousedown',e=>{down=true;sx=e.pageX-el.offsetLeft;sl=el.scrollLeft});el.addEventListener('mouseup',()=>down=false);el.addEventListener('mouseleave',()=>down=false);el.addEventListener('mousemove',e=>{if(!down)return;e.preventDefault();el.scrollLeft=sl-(e.pageX-el.offsetLeft-sx)*1.4})}
 function saveState(){localStorage.setItem('sf_customPapers',JSON.stringify(customPapers));localStorage.setItem('sf_collections',JSON.stringify(collections))}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400)}
-
-// Theme & Contact
-function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme');
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('sf_theme', newTheme);
-}
-const savedTheme = localStorage.getItem('sf_theme') || 'light';
-document.documentElement.setAttribute('data-theme', savedTheme);
-
-async function submitContact(e) {
-  e.preventDefault();
-  const name = document.getElementById('contact-name').value;
-  const email = document.getElementById('contact-email').value;
-  const msg = document.getElementById('contact-msg').value;
-  const status = document.getElementById('contact-status');
-  status.textContent = 'Sending...';
-  status.style.color = 'var(--muted)';
-  
-  try {
-    const res = await fetch('contact.php', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, message: msg })
-    });
-    const result = await res.json();
-    if (result.success) {
-      status.textContent = 'Message sent successfully!';
-      status.style.color = 'var(--green)';
-      e.target.reset();
-    } else {
-      status.textContent = 'Error: ' + (result.message || 'sending message.');
-      status.style.color = 'var(--red)';
-    }
-  } catch(err) {
-    // If not running on PHP server, simulate success for demonstration
-    console.warn('Fetch error (expected if not on PHP server):', err);
-    status.textContent = 'Message sent successfully (Simulated)';
-    status.style.color = 'var(--green)';
-    e.target.reset();
-  }
-}
 
 init();
